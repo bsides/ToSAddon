@@ -1,5 +1,5 @@
 local addonName = "BetterPickQueue";
-local verText = "1.14";
+local verText = "1.15";
 local autherName = "TOUKIBI";
 local addonNameLower = string.lower(addonName);
 local SlashCommandList = {"/pickq", "/pickqueue"} -- {"/コマンド1", "/コマンド2", .......};
@@ -39,7 +39,10 @@ local ResText = {
 		  , HideOriginalQueue = "標準機能のアイテム獲得の{nl}{img channel_mark_empty 24 24}    表示を消す"
 		  , ExpandTo = "表示が伸びる方向"
 		  , ExpandTo_Up = "上へ"
-		  , ExpandTo_Down = "下へ"
+      , ExpandTo_Down = "下へ"
+      , TextDirection = "テキストの配置"
+      , TextLeftToRight = "左から右へ"
+      , TextRightToLeft = "右から左に"
 		  , Close = "{#666666}閉じる{/}"
 		},
 		Display = {
@@ -117,7 +120,10 @@ local ResText = {
 		  , HideOriginalQueue = "Hide default{nl}{img channel_mark_empty 24 24}       item-obtention display"
 		  , ExpandTo = "Direction of display extension"
 		  , ExpandTo_Up = "Upward"
-		  , ExpandTo_Down = "Downward"
+      , ExpandTo_Down = "Downward"
+      , TextDirection = "Text Direction"
+      , TextLeftToRight = "Left to Right"
+      , TextRightToLeft = "Right to Left"
 		  , Close = "{#666666}Close{/}"
 		},
 		Display = {
@@ -254,7 +260,7 @@ local Toukibi = {
 			}
 		}
 	},
-	
+
 	Log = function(self, Caption)
 		if Caption == nil then Caption = "Test Printing" end
 		Caption = tostring(Caption) or "Test Printing";
@@ -360,7 +366,7 @@ local Toukibi = {
 	ChangeLanguage = function(self, Lang)
 		local msg;
 		if self.CommonResText[Lang] == nil then
-			msg = string.format("Sorry, '%s' does not implement '%s' mode.{nl}Language mode has not been changed from '%s'.", 
+			msg = string.format("Sorry, '%s' does not implement '%s' mode.{nl}Language mode has not been changed from '%s'.",
 								addonName, Lang, Me.Settings.Lang);
 			self:AddLog(msg, "Warning", true, false)
 			return;
@@ -399,7 +405,7 @@ local Toukibi = {
 			end
 			CommandHelpText = CommandHelpText .. "{/}{nl} "
 		end
-		
+
 		self:AddLog(string.format("%s{nl}%s{nl}%s%s"
 								, self:GetResText(self.CommonResText, Me.Settings.Lang, "Help.Title")
 								, self:GetResText(self.CommonResText, Me.Settings.Lang, "Help.Description")
@@ -508,7 +514,7 @@ local Toukibi = {
 		else
 			_G[hookedFunctionStr] = newFunction;
 		end
-	end 
+	end
 };
 Me.ComLib = Toukibi;
 local function log(value)
@@ -576,19 +582,19 @@ local function MargeDefaultSetting(Force, DoSave)
 	Me.Settings.PosY			 = Toukibi:GetValueOrDefault(Me.Settings.PosY			, 250, Force);
 	Me.Settings.MarginBottom	 = Toukibi:GetValueOrDefault(Me.Settings.MarginBottom	, 90, Force);
 	Me.Settings.MarginRight		 = Toukibi:GetValueOrDefault(Me.Settings.MarginRight	, 20, Force);
-	
+
 	Me.Settings.useSimpleMenu	 = Toukibi:GetValueOrDefault(Me.Settings.useSimpleMenu	, true, Force);
 	Me.Settings.CurrentMode		 = Toukibi:GetValueOrDefault(Me.Settings.CurrentMode	, "Normal", Force); -- Normal/Counter/Detail
-	
+
 	Me.Settings.ShowElapsedTime	 = Toukibi:GetValueOrDefault(Me.Settings.ShowElapsedTime, false, Force);
 	Me.Settings.ShowCurrent		 = Toukibi:GetValueOrDefault(Me.Settings.ShowCurrent	, true, Force);
 	Me.Settings.ShowGuess		 = Toukibi:GetValueOrDefault(Me.Settings.ShowGuess		, false, Force);
 	Me.Settings.ShowLog			 = Toukibi:GetValueOrDefault(Me.Settings.ShowLog		, true, Force);
-	
+
 	Me.Settings.OrderBy			 = Toukibi:GetValueOrDefault(Me.Settings.OrderBy		, "byGetTime", Force); -- byName/byCount/byGetTime
 	Me.Settings.AutoResetByMap	 = Toukibi:GetValueOrDefault(Me.Settings.AutoResetByMap	, true, Force);
 	Me.Settings.AutoResetByCh	 = Toukibi:GetValueOrDefault(Me.Settings.AutoResetByCh	, false, Force);
-	
+
 	Me.Settings.ShowVis			 = Toukibi:GetValueOrDefault(Me.Settings.ShowVis		, true, Force);
 	Me.Settings.ShowWeight		 = Toukibi:GetValueOrDefault(Me.Settings.ShowWeight		, true, Force);
 	Me.Settings.ShowOldItem		 = Toukibi:GetValueOrDefault(Me.Settings.ShowOldItem	, false, Force);
@@ -597,7 +603,8 @@ local function MargeDefaultSetting(Force, DoSave)
 	Me.Settings.SkinName		 = Toukibi:GetValueOrDefault(Me.Settings.SkinName		, "None", Force); --None/chat_window/systemmenu_vertical
 	Me.Settings.HideOriginalQueue = Toukibi:GetValueOrDefault(Me.Settings.HideOriginalQueue, false, Force);
 	Me.Settings.ExpandTo_Up		 = Toukibi:GetValueOrDefault(Me.Settings.ExpandTo_Up	, true, Force);
-	
+	Me.Settings.TextLeftToRight		 = Toukibi:GetValueOrDefault(Me.Settings.TextLeftToRight	, true, Force);
+
 	if Force then
 		Toukibi:AddLog(Toukibi:GetResText(ResText, Me.Settings.Lang, "System.CompleteLoadDefault"), "Info", true, false);
 	end
@@ -876,8 +883,8 @@ function Me.UpdateItemPickData(itemType, itemCount)
 	local itemCls = GetClassByType("Item", tonumber(itemType));
 	if itemCls == nil then return end
 	local itemClsName = itemCls.ClassName
-	
-	
+
+
 	-- データが無い場合は新規に作成する
 	if Me.Data.Pick[itemClsName] == nil then
 		InitPickData(itemClsName, itemCount)
@@ -914,7 +921,7 @@ local function MakeItemText(itemClsName)
 		, dictionary.ReplaceDicIDInCompStr(itemCls.Name)
 		, GetCommaedTextEx(GetDiffCount(itemClsName), 0, 0, true, false)
 	)
-	
+
 	if GetState_ShowCurrent() then
 		-- 現在数の表示
 		strResult = strResult .. Toukibi:GetStyledText(
@@ -925,7 +932,7 @@ local function MakeItemText(itemClsName)
 			, {"s12", "#CCFFFF"}
 		)
 	end
-	
+
 	local logLength = Toukibi:GetTableLen(PickData.Log);
 	local NowIndex, MaxIndex = logLength, logLength;
 	local StartTime = Me.Data.StartTime;
@@ -1076,12 +1083,12 @@ end
 function Me.UpdateFrame()
 	local objFrame = ui.GetFrame(addonNameLower);
 	if objFrame == nil then return end
-	
+
 	if Me.Settings.ShowVis and Me.Data.Pick.Vis == nil then
 		-- シルバー情報がない場合は追加する
 		InitPickData("Vis", 0)
 	end
-	
+
 	-- 並べ替えの準備を行う
 	local tmpTable = {};
 	for _, value in pairs(Me.Data.Pick) do
@@ -1144,7 +1151,7 @@ function Me.UpdateFrame()
 			end
 		end
 	end
-	
+
 	TargetLabelName = "lblFooter";
 	strResult = "";
 	if Me.Settings.ShowWeight then
@@ -1177,13 +1184,21 @@ function Me.UpdatePos()
 	if objFrame == nil then return end
 
 	if Me.Settings.ExpandTo_Up then
-		if Me.Settings ~= nil and Me.Settings.MarginRight ~= nil and Me.Settings.MarginBottom ~= nil then
-			objFrame:SetGravity(ui.RIGHT, ui.BOTTOM);
+    if Me.Settings ~= nil and Me.Settings.MarginRight ~= nil and Me.Settings.MarginBottom ~= nil then
+      if Me.Settings.TextLeftToRight ~= nil and Me.Settings.TextLeftToRight then
+        objFrame:SetGravity(ui.LEFT, ui.BOTTOM);
+      else
+        objFrame:SetGravity(ui.RIGHT, ui.BOTTOM);
+      end
 			objFrame:SetMargin(Me.Settings.PosX, 0, Me.Settings.MarginRight, Me.Settings.MarginBottom);
 		end
 	else
-		if Me.Settings ~= nil and Me.Settings.PosX ~= nil and Me.Settings.PosY ~= nil then
-			objFrame:SetGravity(ui.LEFT, ui.TOP);
+    if Me.Settings ~= nil and Me.Settings.PosX ~= nil and Me.Settings.PosY ~= nil then
+      if Me.Settings.TextLeftToRight ~= nil and Me.Settings.TextLeftToRight then
+        objFrame:SetGravity(ui.LEFT, ui.TOP);
+      else
+        objFrame:SetGravity(ui.RIGHT, ui.TOP);
+      end
 			objFrame:SetPos(Me.Settings.PosX, Me.Settings.PosY);
 		end
 	end
@@ -1203,7 +1218,7 @@ end
 function Me.ITEMMSG_SHOW_GET_ITEM_HOOKED(frame, itemType, count)
 	-- log("ITEMMSG_SHOW_GET_ITEM_HOOKED実行");
 	if not Me.Settings.HideOriginalQueue then
-		Me.HoockedOrigProc["ITEMMSG_SHOW_GET_ITEM"](frame, itemType, count); 
+		Me.HoockedOrigProc["ITEMMSG_SHOW_GET_ITEM"](frame, itemType, count);
 	end
 end
 
@@ -1265,7 +1280,10 @@ function TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE(propName, value)
 	Me.UpdateFrame();
 	if propName == "ExpandTo_Up" then
 		Me.UpdatePos()
-	end
+  end
+  if propName == "TextLeftToRight" then
+    Me.UpdatePos()
+  end
 end
 
 function TOUKIBI_BETTERPICKQUEUE_SETVALUE(propName, value)
@@ -1297,7 +1315,7 @@ function TOUKIBI_BETTERPICKQUEUE_CONTEXT_MENU(frame, ctrl)
 		CallSubMenu = true;
 	end
 	local context = ui.CreateContextMenu("BETTERPICKQUEUE_MAIN_RBTN", titleText, 0, 0, cmenuWidth - 10, 0);
-	
+
 	if not CallSubMenu then
 		-- 通常メニュー
 		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30);
@@ -1315,13 +1333,13 @@ function TOUKIBI_BETTERPICKQUEUE_CONTEXT_MENU(frame, ctrl)
 			Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Display.GuessCount"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "ShowGuess", not Me.Settings.ShowGuess and 1 or 0), nil, Me.Settings.ShowGuess);
 			Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Display.SimpleLog"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "ShowLog", not Me.Settings.ShowLog and 1 or 0), nil, Me.Settings.ShowLog);
 			Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Display.ElapsedTime"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "ShowElapsedTime", not Me.Settings.ShowElapsedTime and 1 or 0), nil, Me.Settings.ShowElapsedTime);
-			
+
 			Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.2, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.SortedBy"));
 			Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Order.byName"), string.format("TOUKIBI_BETTERPICKQUEUE_SETVALUE('%s', '%s')", "OrderBy", "byName"), nil, (Me.Settings.OrderBy == "byName"));
 			Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Order.byCount"), string.format("TOUKIBI_BETTERPICKQUEUE_SETVALUE('%s', '%s')", "OrderBy", "byCount"), nil, (Me.Settings.OrderBy == "byCount"));
 			Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Order.byGetTime"), string.format("TOUKIBI_BETTERPICKQUEUE_SETVALUE('%s', '%s')", "OrderBy", "byGetTime"), nil, (Me.Settings.OrderBy == "byGetTime"));
 		end
-		
+
 		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.3, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.AllwaysDisplay"));
 		if Me.Settings.useSimpleMenu then
 			-- かんたんメニューときだけ表示
@@ -1346,21 +1364,25 @@ function TOUKIBI_BETTERPICKQUEUE_CONTEXT_MENU(frame, ctrl)
 		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.2, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.AutoReset"));
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "AutoReset.byMap"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "AutoResetByMap", not Me.Settings.AutoResetByMap and 1 or 0), nil, Me.Settings.AutoResetByMap);
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "AutoReset.byChannel"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "AutoResetByCh", not Me.Settings.AutoResetByCh and 1 or 0), nil, Me.Settings.AutoResetByCh);
-		
+
 		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.3, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.BackGround"));
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "BackGround.Deep"), string.format("TOUKIBI_BETTERPICKQUEUE_SETVALUE('%s', '%s')", "SkinName", "systemmenu_vertical"), nil, (Me.Settings.SkinName == "systemmenu_vertical"));
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "BackGround.Thin"), string.format("TOUKIBI_BETTERPICKQUEUE_SETVALUE('%s', '%s')", "SkinName", "chat_window"), nil, (Me.Settings.SkinName == "chat_window"));
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "BackGround.None"), string.format("TOUKIBI_BETTERPICKQUEUE_SETVALUE('%s', '%s')", "SkinName", "None"), nil, (Me.Settings.SkinName == "None"));
-		
+
 		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.4, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.ExpandTo"));
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.ExpandTo_Up"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "ExpandTo_Up", 1), nil, Me.Settings.ExpandTo_Up);
-		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.ExpandTo_Down"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "ExpandTo_Up", 0), nil, not Me.Settings.ExpandTo_Up);
+    Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.ExpandTo_Down"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "ExpandTo_Up", 0), nil, not Me.Settings.ExpandTo_Up);
 
-		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.5);
+    Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.5, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.TextDirection"));
+		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.TextLeftToRight"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "TextLeftToRight", 0), nil, Me.Settings.TextLeftToRight);
+		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.TextLeftToRight"), string.format("TOUKIBI_BETTERPICKQUEUE_TOGGLE_VALUE('%s', %s)", "TextLeftToRight", 0), nil, not Me.Settings.TextLeftToRight);
+
+		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.6);
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.ResetPosition"), "TOUKIBI_BETTERPICKQUEUE_RESET_POSITION()");
 		Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.UpdateNow"), "TOUKIBI_BETTERPICKQUEUE_UPDATE()");
 
-		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.6);
+		Toukibi:MakeCMenuSeparator(context, cmenuWidth - 30 + 0.7);
 	end
 	Toukibi:MakeCMenuItem(context, Toukibi:GetResText(ResText, Me.Settings.Lang, "Menu.Close"));
 	context:Resize(cmenuWidth, context:GetHeight());
@@ -1385,24 +1407,24 @@ end
 -- スラッシュコマンド受取
 function TOUKIBI_BETTERPICKQUEUE_PROCESS_COMMAND(command)
 	Toukibi:AddLog(string.format(Toukibi:GetResText(ResText, Me.Settings.Lang, "System.ExecuteCommands"), SlashCommandList[1] .. " " .. table.concat(command, " ")), "Info", true, true);
-	local cmd = ""; 
-	if #command > 0 then 
+	local cmd = "";
+	if #command > 0 then
 		-- パラメータが存在した場合はパラメータの1個めを抜き出してみる
-		cmd = table.remove(command, 1); 
+		cmd = table.remove(command, 1);
 	else
 		-- パラメータなしでコマンドが呼ばれた場合
 		ui.ToggleFrame(addonNameLower)
 		return;
-	end 
-	if cmd == "reset" then 
+	end
+	if cmd == "reset" then
 		-- 計測をリセット
 		TOUKIBI_BETTERPICKQUEUE_RESET_DATA();
 		return;
-	elseif cmd == "resetpos" then 
+	elseif cmd == "resetpos" then
 		-- 位置をリセット
 		Me.ResetPos();
 		return;
-	elseif cmd == "resetsetting" then 
+	elseif cmd == "resetsetting" then
 		-- 設定をリセット
 		MargeDefaultSetting(true, true);
 		Toukibi:AddLog(Toukibi:GetResText(ResText, Me.Settings.Lang, "System.ResetSettings"), "Notice", true, false);
@@ -1418,8 +1440,8 @@ function TOUKIBI_BETTERPICKQUEUE_PROCESS_COMMAND(command)
 		if cmd == "ja" then cmd = "jp" end
 		Me.ComLib:ChangeLanguage(cmd);
 		-- 何か更新したければ更新処理をここに書く
-		
-		
+
+
 		return;
 	elseif cmd ~= nil and cmd ~= "?" and cmd ~= "" then
 		local strError = Toukibi:GetResText(ResText, Me.Settings.Lang, "System.InvalidCommand");
@@ -1427,7 +1449,7 @@ function TOUKIBI_BETTERPICKQUEUE_PROCESS_COMMAND(command)
 			strError = strError .. string.format("{nl}" .. Toukibi:GetResText(ResText, Me.Settings.Lang, "System.AnnounceCommandList"), SlashCommandList[1]);
 		end
 		Toukibi:AddLog(strError, "Warning", true, false);
-	end 
+	end
 	Me.ComLib:ShowHelpText()
 end
 
@@ -1449,14 +1471,14 @@ function BETTERPICKQUEUE_ON_INIT(addon, frame)
 	addon:RegisterMsg('ITEM_PICK', 'TOUKIBI_BETTERPICKQUEUE_ON_ITEM_PICK');
 	addon:RegisterMsg('GAME_START', 'TOUKIBI_BETTERPICKQUEUE_ON_GAME_START');
 	addon:RegisterMsg("FPS_UPDATE", "TOUKIBI_BETTERPICKQUEUE_UPDATE");
-	
+
 	-- フックしたいイベントを記述
-	Toukibi:SetHook("ITEMMSG_SHOW_GET_ITEM", Me.ITEMMSG_SHOW_GET_ITEM_HOOKED); 
-	
+	Toukibi:SetHook("ITEMMSG_SHOW_GET_ITEM", Me.ITEMMSG_SHOW_GET_ITEM_HOOKED);
+
 
 	Me.IsDragging = false;
 	ui.GetFrame(addonNameLower):EnableMove(Me.Settings.Movable and 1 or 0);
-	
+
 	Me.UpdatePos()
 
 	-- スラッシュコマンドを登録する
